@@ -129,11 +129,19 @@ def load_links():
 
 
 with app.app_context():
+    print("\n" + "="*50)
+    print("DEMARRAGE DU SERVEUR MYTFLIX")
+    print("="*50)
     init_recommender()
     load_links()
+    
+    if recommender and recommender.movies is not None:
+        print(f"[OK] Backend prêt avec {len(recommender.movies)} films")
+    
     # Lancer le cache TMDB en arrière-plan - ne bloque pas le serveur
     t = threading.Thread(target=build_poster_cache_thread, daemon=True)
     t.start()
+    print("="*50 + "\n")
 
 # ------------------------------------------------------------------ #
 # ROUTES
@@ -155,6 +163,7 @@ def health_check():
     return jsonify({"status": "healthy", "poster_cache_size": len(poster_cache)})
 
 @app.route("/api/top-films", methods=["GET"])
+@app.route("/top-films", methods=["GET"])
 def get_top_films():
     n    = request.args.get('n', default=20, type=int)
     skip = request.args.get('skip', default=0, type=int)
@@ -167,6 +176,7 @@ def get_top_films():
         return jsonify({"error": str(e)}), 400
 
 @app.route("/api/films/genre/<string:genre>", methods=["GET"])
+@app.route("/films/genre/<string:genre>", methods=["GET"])
 def get_films_by_genre(genre):
     n = request.args.get('n', default=20, type=int)
     if recommender is None:
@@ -178,6 +188,7 @@ def get_films_by_genre(genre):
         return jsonify({"error": str(e)}), 400
 
 @app.route("/api/recommandations", methods=["POST"])
+@app.route("/recommandations", methods=["POST"])
 def get_recommendations():
     data = request.get_json()
     if not data or 'user_id' not in data:
@@ -197,6 +208,7 @@ def get_recommendations():
         return jsonify({"error": str(e)}), 400
 
 @app.route("/api/genres", methods=["GET"])
+@app.route("/genres", methods=["GET"])
 def get_all_genres():
     if recommender is None:
         return jsonify({"error": "Modele non charge"}), 503
@@ -207,6 +219,7 @@ def get_all_genres():
         return jsonify({"error": str(e)}), 400
 
 @app.route("/api/recommend/<string:movie_title>", methods=["GET"])
+@app.route("/recommend/<string:movie_title>", methods=["GET"])
 def recommend_by_title(movie_title):
     n = request.args.get('n', default=10, type=int)
     if recommender is None:

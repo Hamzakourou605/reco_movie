@@ -1,9 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+const getApiUrl = () => {
+  let url = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+  // Supprime le slash final s'il existe
+  url = url.replace(/\/$/, '');
+  return url;
+};
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiUrl(),
 });
 
 export const getTopFilms = async (n = 20) => {
