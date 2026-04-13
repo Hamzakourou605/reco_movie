@@ -19,7 +19,8 @@ class MovieRecommender:
         self.tags = None
         self.movie_similarity = None
         self.user_item_matrix = None
-        self.genre_similarity = None
+        self.genre_vectors = None  # Stocke les vecteurs TF-IDF au lieu de la matrice de similarité
+        self.vectorizer = None     # Stocke le vectorizer pour de futures utilisations
         self.user_similarity = None  # Cache de similarite utilisateur
         
     def load_data(self):
@@ -46,16 +47,14 @@ class MovieRecommender:
         return self
     
     def build_genre_similarity(self):
-        """Construit une matrice de similarit base sur les genres"""
-        print(" Construction de la similarit des genres...")
+        """Prépare les vecteurs de genres pour le calcul de similarité"""
+        print(" Préparation des vecteurs de genres...")
         
         # Vectorise les genres
-        vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2, 2))
-        genre_vectors = vectorizer.fit_transform(self.movies['genres'].fillna(''))
+        self.vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2, 2))
+        self.genre_vectors = self.vectorizer.fit_transform(self.movies['genres'].fillna(''))
         
-        # Calcule la similarit cosinus
-        self.genre_similarity = cosine_similarity(genre_vectors)
-        print(f" Similarit des genres calcule")
+        print(f" Vecteurs de genres préparés: {self.genre_vectors.shape}")
         return self
     
     def calculate_user_similarity(self):
@@ -76,12 +75,17 @@ class MovieRecommender:
         return self.user_similarity
     
     def get_recommendations_by_genres(self, movie_id, n=10):
-        """Obtient les films recommands bass sur les genres similaires"""
+        """Obtient les films recommands bass sur les genres similaires (calcul à la volée pour économiser de la RAM)"""
         if movie_id not in self.movies['movieId'].values:
             return pd.DataFrame()
         
         movie_idx = self.movies[self.movies['movieId'] == movie_id].index[0]
-        similarities = self.genre_similarity[movie_idx]
+        
+        # Calculer la similarité cosinus uniquement pour ce film par rapport à tous les autres
+        # genre_vectors[movie_idx] est le vecteur du film cible
+        target_vector = self.genre_vectors[movie_idx]
+        similarities = cosine_similarity(target_vector, self.genre_vectors).flatten()
+        
         similar_movies_idx = np.argsort(similarities)[::-1][1:n+1]
         
         recommended_movies = self.movies.iloc[similar_movies_idx][['movieId', 'title', 'genres']].copy()
