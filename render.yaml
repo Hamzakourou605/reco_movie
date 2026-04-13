@@ -1,0 +1,31 @@
+runtime: python-3.11
+services:
+  - type: web
+    name: reco-movies-backend
+    env: python
+    plan: free
+    branch: main
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11
+    healthCheckPath: /health  # Ajoute cette route dans app.py
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql
+      sizeGB: 10
+  
+  - type: pserv
+    name: reco-movies-postgres
+    plan: free
+    ipAllowList: []
+    envVars:
+      - key: POSTGRES_DB
+        value: reco_movies
+      - key: POSTGRES_USER
+        value: ${{ secrets.POSTGRES_USER }}
+      - key: POSTGRES_PASSWORD
+        value: ${{ secrets.POSTGRES_PASSWORD }}

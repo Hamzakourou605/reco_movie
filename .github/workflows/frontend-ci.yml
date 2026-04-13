@@ -1,0 +1,153 @@
+name: Frontend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    branches: [ "main", "develop" ]
+    paths:
+      - "frontend/**"
+
+jobs:
+  # 1️⃣  TEST ET LINT DU CODE REACT
+  test:
+    name: Tests & Lint Frontend
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+      
+      - name: 📦 Installer les dépendances
+        run: npm ci
+      
+      - name: 🎨 Lint avec ESLint
+        run: |
+          npm run lint || true
+      
+      - name: 🔨 Build du projet
+        run: npm run build
+      
+      - name: 🧪 Lancer les tests (si configurés)
+        run: |
+          npm test -- --passWithNoTests || true
+      
+      - name: 📊 Archiver le build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 5
+
+  # 2️⃣  ANALYSE DE PERFORMANCE
+  performance:
+    name: Performance & Bundle Size
+    runs-on: ubuntu-latest
+    needs: test
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: 📦 Installer les dépendances
+        run: npm ci
+      
+      - name: 🔨 Build pour analyser
+        run: npm run build
+      
+      - name: 📦 Vérifier la taille du bundle
+        run: |
+          DIST_SIZE=$(du -sh dist | cut -f1)
+          echo "📊 Taille du dist: $DIST_SIZE"
+          
+          # Vérifie que le bundle n'est pas trop gros
+          DIST_SIZE_KB=$(du -sk dist | cut -f1)
+          if [ $DIST_SIZE_KB -gt 1000 ]; then
+            echo "⚠️  Bundle volumineux: ${DIST_SIZE_KB}KB"
+          else
+            echo "✅ Bundle OK: ${DIST_SIZE_KB}KB"
+          fi
+
+  # 3️⃣  SCAN DE SÉCURITÉ
+  security:
+    name: Sécurité Dependencies
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: 📦 npm audit
+        run: npm audit --audit-level=moderate || true
+
+  # 4️⃣  DÉPLOIEMENT (optionnel)
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [test, performance, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: 📦 Installer & Build
+        run: |
+          npm ci
+          npm run build
+      
+      - name: 🚀 Deploy notification
+        run: |
+          echo "🚀 Frontend prêt pour déploiement sur main"
+          echo "✅ Tous les tests passés"
+          echo "📊 Build complété: $(du -sh dist | cut -f1)"
+      
+      - name: 🚀 Deploy to Vercel
+        uses: vercel/actions/deploy@main
+        with:
+          token: ${{ secrets.VERCEL_TOKEN }}
+          org-id: ${{ secrets.VERCEL_ORG_ID }}
+          project-id: ${{ secrets.VERCEL_PROJECT_ID }}

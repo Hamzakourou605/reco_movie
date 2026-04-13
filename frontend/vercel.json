@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "VITE_API_URL": "@reco_movies_api_url"
+  },
+  "envPrefix": "VITE_",
+  "framework": "vite",
+  "installCommand": "npm install"
+}

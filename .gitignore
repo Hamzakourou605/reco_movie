@@ -1,0 +1,45 @@
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.eggs/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Model
+recommender_model.pkl
+
+# Cache
+posters/
+
+# MLflow (trop gros pour GitHub)
+mlruns/
+mlruns_test/
+*.pkl
+
+# Environment
+.env
+.env.local
