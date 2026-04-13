@@ -1,31 +1,47 @@
-runtime: python-3.11
 services:
+  # ---------------------------------------------------------------------------
+  # 1. DATABASE (PostgreSQL)
+  # ---------------------------------------------------------------------------
+  - type: database
+    name: reco-movies-db
+    databaseName: reco_movies
+    user: postgres
+    plan: free
+
+  # ---------------------------------------------------------------------------
+  # 2. BACKEND (Flask API)
+  # ---------------------------------------------------------------------------
   - type: web
-    name: reco-movies-backend
+    name: reco-movies-api
     env: python
     plan: free
-    branch: main
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    startCommand: "gunicorn app:app"
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reco-movies-db
+          property: connectionString
       - key: FLASK_ENV
         value: production
       - key: PYTHON_VERSION
         value: 3.11
-    healthCheckPath: /health  # Ajoute cette route dans app.py
-    disk:
-      name: postgres-data
-      mountPath: /var/lib/postgresql
-      sizeGB: 10
-  
-  - type: pserv
-    name: reco-movies-postgres
+      - key: TMDB_API_KEY
+        sync: false # À configurer manuellement dans le dashboard Render
+
+  # ---------------------------------------------------------------------------
+  # 3. FRONTEND (React Static Site)
+  # ---------------------------------------------------------------------------
+  - type: static_site
+    name: reco-movies-web
     plan: free
-    ipAllowList: []
+    buildCommand: "cd frontend && npm install && npm run build"
+    publishPath: frontend/dist
     envVars:
-      - key: POSTGRES_DB
-        value: reco_movies
-      - key: POSTGRES_USER
-        value: ${{ secrets.POSTGRES_USER }}
-      - key: POSTGRES_PASSWORD
-        value: ${{ secrets.POSTGRES_PASSWORD }}
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: reco-movies-api
+          property: host
+        # Note: Render prefixera avec https:// et il faudra peut-être ajouter /api manuellement
+        # mais la plupart des configs utilisent le host direct.
