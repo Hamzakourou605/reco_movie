@@ -236,5 +236,113 @@ def recommend_by_title(movie_title):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route("/api/admin/stats", methods=["GET"])
+def get_admin_stats():
+    if recommender is None:
+        return jsonify({"error": "Modele non charge"}), 503
+    
+    try:
+        from datetime import datetime, timedelta
+        import random
+        
+        # Import sécurisé de mlflow
+        mlflow_available = False
+        try:
+            import mlflow
+            mlflow_available = True
+        except ImportError:
+            print("[WARN] MLflow n'est pas installe. Les stats MLflow seront indisponibles.")
+
+        # Vérification de la présence des données
+        if recommender.movies is None or recommender.ratings is None:
+            print("[INFO] Rechargement des donnees pour les stats admin...")
+            recommender.load_data()
+
+        # Statistiques de base
+        total_movies = len(recommender.movies)
+        total_ratings = len(recommender.ratings)
+        total_tags = len(recommender.tags) if recommender.tags is not None else 0
+        avg_rating = round(float(recommender.ratings['rating'].mean()), 2)
+        unique_users = int(recommender.ratings['userId'].nunique())
+
+        # 1. Top 10 Films les mieux notés
+        stats_ratings = recommender.ratings.groupby('movieId')['rating'].agg(['mean', 'count'])
+        best_rated = stats_ratings[stats_ratings['count'] >= 10].sort_values('mean', ascending=False).head(10)
+        best_data = []
+        for mid, row in best_rated.iterrows():
+            matches = recommender.movies[recommender.movies['movieId'] == mid]
+            if not matches.empty:
+                title = matches['title'].values[0]
+                best_data.append({"name": title, "value": round(float(row['mean']), 2), "count": int(row['count'])})
+
+        # 2. Distribution des genres
+        genre_list = []
+        for genres in recommender.movies['genres'].dropna():
+            if genres != '(no genres listed)':
+                genre_list.extend(genres.split('|'))
+        
+        genre_counts = pd.Series(genre_list).value_counts().head(10).to_dict()
+        genre_data = [{"name": k, "value": v} for k, v in genre_counts.items()]
+
+        # 3. Utilisateurs les plus actifs
+        active_users = recommender.ratings['userId'].value_counts().head(5).to_dict()
+        user_data = [{"name": f"User {k}", "value": v} for k, v in active_users.items()]
+
+        # 4. Simulation d'activité (30 derniers jours)
+        today = datetime.now()
+        activity_data = []
+        for i in range(30, -1, -1):
+            date_str = (today - timedelta(days=i)).strftime('%d %b')
+            activity_data.append({
+                "date": date_str,
+                "ratings": random.randint(10, 50)
+            })
+
+        # 5. Données MLflow
+        mlflow_runs = []
+        ui_url = "http://localhost:5000"
+        if mlflow_available:
+            try:
+                # Tenter de récupérer l'URI de tracking configuré
+                tracking_uri = mlflow.get_tracking_uri()
+                print(f"[INFO] MLflow tracking URI: {tracking_uri}")
+                
+                exp = mlflow.get_experiment_by_name("Movie Recommender Experiments")
+                if exp:
+                    runs = mlflow.search_runs(experiment_ids=[exp.experiment_id], max_results=5)
+                    for _, run in runs.iterrows():
+                        # Sécurité contre les valeurs NaN qui cassent le JSON
+                        acc = run.get("metrics.avg_rating", 0)
+                        if pd.isna(acc):
+                            acc = 0
+                        
+                        mlflow_runs.append({
+                            "id": str(run["run_id"])[:8],
+                            "status": str(run["status"]),
+                            "date": str(run["start_time"])[:16],
+                            "accuracy": round(float(acc), 2)
+                        })
+            except Exception as e:
+                print(f"[WARN] Erreur acces MLflow: {e}")
+
+        return jsonify({
+            "total_movies": total_movies,
+            "total_ratings": total_ratings,
+            "total_tags": total_tags,
+            "avg_rating": avg_rating,
+            "unique_users": unique_users,
+            "best_rated": best_data,
+            "genre_distribution": genre_data,
+            "active_users": user_data,
+            "activity_line": activity_data,
+            "mlflow_runs": mlflow_runs,
+            "mlflow_ui_url": ui_url,
+            "mlflow_available": mlflow_available
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

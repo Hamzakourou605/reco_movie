@@ -36,4 +36,9 @@ export const getRecommendationsByTitle = async (title) => {
   return response.data;
 };
 
+export const getAdminStats = async () => {
+  const response = await api.get('/admin/stats');
+  return response.data;
+};
+
 export default api;

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { getRecommendations, getRecommendationsByTitle } from '../api';
 import MovieCard from '../components/MovieCard';
-import { Search, AlertCircle } from 'lucide-react';
+import AdminDashboard from '../components/AdminDashboard';
+import { Search, AlertCircle, LayoutDashboard } from 'lucide-react';
 
 const Recommend = () => {
   const [userId, setUserId] = useState('');
@@ -10,6 +11,8 @@ const Recommend = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mode, setMode] = useState('user');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentId, setCurrentId] = useState('');
 
   const handleRecommendUser = async (e) => {
     e.preventDefault();
@@ -17,12 +20,25 @@ const Recommend = () => {
     setLoading(true);
     setError('');
     setMovies([]);
+    
+    // Check if it's Admin (ID 0 or "admin" string)
+    const isUserAdmin = userId.toString().toLowerCase() === 'admin' || userId === '0';
+    const finalUserId = isUserAdmin ? '0' : userId;
+    
+    setIsAdmin(isUserAdmin);
+    setCurrentId(finalUserId);
+    
     try {
-      const data = await getRecommendations(userId, 12);
-      if (!Array.isArray(data) || data.length === 0) {
-        setError("Aucune recommandation trouvée. Essayez un ID entre 1 et 610.");
+      // Si c'est l'admin, on ne récupère pas de recommandations de films
+      if (isUserAdmin) {
+        setMovies([]);
       } else {
-        setMovies(data);
+        const data = await getRecommendations(finalUserId, 12);
+        if (!Array.isArray(data) || data.length === 0) {
+          setError("Aucune recommandation trouvée. Essayez un ID entre 1 et 610.");
+        } else {
+          setMovies(data);
+        }
       }
     } catch (err) {
       const msg = err?.response?.data?.error || "Erreur serveur. Verifiez que l'ID est entre 1 et 610.";
@@ -38,6 +54,8 @@ const Recommend = () => {
     setLoading(true);
     setError('');
     setMovies([]);
+    setIsAdmin(false);
+    setCurrentId('');
     try {
       const data = await getRecommendationsByTitle(movieTitle);
       if (!Array.isArray(data) || data.length === 0) {
@@ -55,21 +73,23 @@ const Recommend = () => {
 
   return (
     <div className="page-container">
-      <h1 className="page-title">Recommandations Pour Vous</h1>
+      <h1 className="page-title">
+        {isAdmin ? "Espace Administration" : "Recommandations Pour Vous"}
+      </h1>
 
       {/* Mode Switch */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
         <button
           className="btn"
           style={{ background: mode === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.1)' }}
-          onClick={() => { setMode('user'); setError(''); setMovies([]); }}
+          onClick={() => { setMode('user'); setError(''); setMovies([]); setIsAdmin(false); }}
         >
           Par ID Utilisateur
         </button>
         <button
           className="btn"
           style={{ background: mode === 'title' ? 'var(--primary)' : 'rgba(255,255,255,0.1)' }}
-          onClick={() => { setMode('title'); setError(''); setMovies([]); }}
+          onClick={() => { setMode('title'); setError(''); setMovies([]); setIsAdmin(false); }}
         >
           Par Film Similaire
         </button>
@@ -80,21 +100,19 @@ const Recommend = () => {
         {mode === 'user' ? (
           <form onSubmit={handleRecommendUser}>
             <div className="form-group">
-              <label className="form-label">Votre ID Utilisateur (entre 1 et 610)</label>
+              <label className="form-label">Votre ID Utilisateur (1-610) ou 'admin' pour le dashboard</label>
               <input
-                type="number"
-                min="1"
-                max="610"
+                type="text"
                 className="form-input"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="Ex: 1, 42, 300..."
+                placeholder="Ex: 1, 42, admin (ID 0)..."
                 required
               />
             </div>
             <button type="submit" className="btn" disabled={loading}>
               <Search size={18} />
-              {loading ? 'Recherche en cours...' : 'Trouver des films'}
+              {loading ? 'Connexion...' : (userId.toLowerCase() === 'admin' || userId === '0' ? 'Accéder au Dashboard' : 'Trouver des films')}
             </button>
           </form>
         ) : (
@@ -112,7 +130,7 @@ const Recommend = () => {
             </div>
             <button type="submit" className="btn" disabled={loading}>
               <Search size={18} />
-              {loading ? 'Recherche en cours...' : 'Films similaires'}
+              {loading ? 'Recherche...' : 'Films similaires'}
             </button>
           </form>
         )}
@@ -132,18 +150,24 @@ const Recommend = () => {
 
       {/* Results */}
       {loading ? (
-        <div style={{ textAlign: 'center', paddingTop: '2rem' }}>
+        <div style={{ textAlign: 'center', paddingTop: '4rem' }}>
           <div className="spinner"></div>
           <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
-            Calcul des recommandations en cours... (peut prendre ~10s)
+            {isAdmin ? "Chargement du Dashboard..." : "Calcul des recommandations..."}
           </p>
         </div>
       ) : (
-        <div className="movie-grid">
-          {movies.map(m => (
-            <MovieCard key={m.movieId} movie={m} />
-          ))}
-        </div>
+        <>
+          {isAdmin ? (
+            <AdminDashboard />
+          ) : (
+            <div className="movie-grid">
+              {movies.map(m => (
+                <MovieCard key={m.movieId} movie={m} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
