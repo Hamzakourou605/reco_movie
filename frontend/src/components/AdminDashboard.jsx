@@ -35,12 +35,23 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
+      console.log("🛠️ Tentative de récupération des stats admin...");
       try {
         const data = await getAdminStats();
+        console.log("✅ Stats admin reçues:", data);
         setStats(data);
       } catch (err) {
-        console.error("Error fetching admin stats:", err);
-        setError("Erreur lors du chargement des statistiques.");
+        console.error("❌ Erreur lors de la récupération des stats:", err);
+        // Log plus détaillé pour Render/Production
+        if (err.response) {
+          console.error("Détails server:", err.response.data);
+          setError(`Erreur Serveur: ${err.response.data.error || 'Erreur inconnue'}`);
+        } else if (err.request) {
+          console.error("Pas de réponse du serveur. Vérifiez l'URL de l'API.");
+          setError("Impossible de contacter le serveur API. Vérifiez votre connexion ou l'URL configurée.");
+        } else {
+          setError("Erreur lors du chargement des statistiques.");
+        }
       } finally {
         setLoading(false);
       }

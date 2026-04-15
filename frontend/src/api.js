@@ -2,8 +2,21 @@ import axios from 'axios';
 
 const getApiUrl = () => {
   let url = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
-  // Supprime le slash final s'il existe
+  
+  // Si on est sur Render et que l'URL ne contient pas de protocole, on ajoute https://
+  if (url && !url.startsWith('http')) {
+    url = `https://${url}`;
+  }
+  
+  // S'assure que l'URL se termine par /api pour correspondre aux routes Flask
+  if (url && !url.endsWith('/api') && !url.includes('/api/')) {
+    url = `${url.replace(/\/$/, '')}/api`;
+  }
+  
+  // Supprime le slash final s'il existe (pour éviter // dans axios)
   url = url.replace(/\/$/, '');
+  
+  console.log('📡 Base API URL:', url);
   return url;
 };
 

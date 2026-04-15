@@ -137,6 +137,10 @@ with app.app_context():
     
     if recommender and recommender.movies is not None:
         print(f"[OK] Backend prêt avec {len(recommender.movies)} films")
+    else:
+        print("[ERROR] Le recommender a été initialisé mais les films sont manquants!")
+        print(f"CWD: {os.getcwd()}")
+        print(f"Files in CWD: {os.listdir('.')}")
     
     # Lancer le cache TMDB en arrière-plan - ne bloque pas le serveur
     t = threading.Thread(target=build_poster_cache_thread, daemon=True)
@@ -255,8 +259,10 @@ def get_admin_stats():
 
         # Vérification de la présence des données
         if recommender.movies is None or recommender.ratings is None:
-            print("[INFO] Rechargement des donnees pour les stats admin...")
+            print(f"[INFO] Rechargement des donnees... CWD: {os.getcwd()}")
             recommender.load_data()
+            if recommender.movies is None:
+                raise Exception("Impossible de charger les fichiers CSV (movies.csv, ratings.csv). Verifiez leur presence sur Render.")
 
         # Statistiques de base
         total_movies = len(recommender.movies)
